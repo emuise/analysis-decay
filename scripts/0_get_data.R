@@ -132,12 +132,6 @@ if (!file.exists(bec_loc)) {
 
 bec_terr <- vect(bec_loc)
 
-
-# plot(bec_terr, col = ggsci::pal_igv("default")(16))
-# plot(bc_ifl, col = "white", add = T)
-# plot(pa_ifl, col = "green", add = T)
-
-
 # iter expand function
 iter_expand <- function(raster) {
   # project and crop to bcb twice
