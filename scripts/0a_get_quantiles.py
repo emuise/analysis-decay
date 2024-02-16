@@ -3,7 +3,9 @@ import os
 import numpy as np
 import rioxarray as rio
 
-clim = [os.path.join(clim_dir, file) for file in os.listdir("E:/Sync/Masters/analysis_03_decay/data/rasters") if file.endswith(".dat") and file.startswith("clim")]
+clim_dir = "E:/Sync/Masters/analysis_03_decay/data/rasters"
+
+clim = [os.path.join(clim_dir, file) for file in os.listdir(clim_dir) if file.endswith(".dat") and file.startswith("clim")]
 
 cov_paths = clim + ["E:/Sync/Masters/analysis_03_decay/data/rasters/DEM.dat", "E:/Sync/Masters/analysis_03_decay/data/rasters/slope.dat"]
 
