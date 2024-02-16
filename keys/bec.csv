@@ -1,0 +1,17 @@
+zone,zone_nm,order,group
+BAFA,Boreal Altai Fescue Alpine,1,Alpine
+BG,Bunchgrass,2,South
+BWBS,Boreal White and Black Spruce,3,North
+CDF,Coastal Douglas-fir,4,Coastal
+CMA,Coastal Mountain-heather Alpine,5,Alpine
+CWH,Coastal Western Hemlock,6,Coastal
+ESSF,Engelmann Spruce -- Subalpine Fir,7,Montane
+ICH,Interior Cedar -- Hemlock,8,South
+IDF,Interior Douglas-fir,9,South
+IMA,Interior Mountain-heather Alpine,10,Alpine
+MH,Mountain Hemlock,11,Montane
+MS,Montane Spruce,12,Montane
+PP,Ponderosa Pine,13,South
+SBPS,Sub-Boreal Pine -- Spruce,14,North
+SBS,Sub-Boreal Spruce,15,North
+SWB,Spruce -- Willow -- Birch,16,North

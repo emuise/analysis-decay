@@ -5,17 +5,10 @@ library(tidyterra)
 library(sf)
 # remotes::install_github("https://github.com/emuise/budR")
 library(budR) # has my keys in it
+source(here::here("scripts", "0a_make_folders.R"))
 
 terraOptions(memfrac = 0.90,
              tempdir = "F:\\scratch2")
-
-shapefile_loc <- here::here("data", "shapefiles")
-raster_loc <- here::here("data", "rasters")
-scratch <- here::here(raster_loc, "scratch")
-dir.create(shapefile_loc, recursive = T, showWarnings = F)
-dir.create(raster_loc, recursive = T, showWarnings = F)
-dir.create(scratch, recursive = T, showWarnings = F)
-
 
 # bc boundary
 bcb_loc <- here::here(shapefile_loc, "bcb.shp")
@@ -32,16 +25,6 @@ if (!file.exists(bcb_loc)) {
 }
 
 bcb <- vect(bcb_loc)
-
-bcb_wgs84 <- bcb %>%
-  project("epsg:4326")
-
-# some are in wgs84 and thus need to have a different cropping method
-# trying cropping to bcb_wgs84 ext plus a boundary, also used to determine
-# which provinces/states have large cities for the distance raster
-
-bcb_wgs84_buff <- buffer(bcb_wgs84, 25000)
-
 
 # forests
 forests_loc <- here::here(raster_loc, "forests.dat")
@@ -72,6 +55,20 @@ if (!file.exists(forests_loc)) {
 }
 
 forests <- rast(forests_loc)
+
+
+
+bcb_wgs84 <- bcb %>%
+  project("epsg:4326")
+
+# some are in wgs84 and thus need to have a different cropping method
+# trying cropping to bcb_wgs84 ext plus a boundary, also used to determine
+# which provinces/states have large cities for the distance raster
+
+bcb_wgs84_buff <- buffer(bcb_wgs84, 25000)
+
+
+
 
 # bc protected areas
 pa_loc <- here::here(shapefile_loc, "bc_pa_filt.shp")
@@ -155,7 +152,7 @@ iter_expand <- function(raster) {
         by_util = T
       )
   }
-
+  
   bcb_rast <- bcb %>%
     rasterize(raster, touches = T)
   
@@ -164,7 +161,7 @@ iter_expand <- function(raster) {
   
   # count how many pixels there should be
   old <- bcb_rast %>%
-    freq() %>% 
+    freq() %>%
     pull(count)
   
   print("value to match")
@@ -246,7 +243,8 @@ travel_bc <- rast(travel_loc)
 # i do not understand why we need to match based on both, but this is following
 # Duncanson et al., (2023)
 
-pops_locs <- here::here(raster_loc, c("pop_count.dat", "pop_density.dat"))
+pops_locs <-
+  here::here(raster_loc, c("pop_count.dat", "pop_density.dat"))
 
 
 if (!all(file.exists(pops_locs))) {
@@ -280,9 +278,12 @@ distance_loc <- here::here("data", "rasters", "city_distance.dat")
 
 if (!file.exists(distance_loc)) {
   download_loc <- here::here(scratch, "distance_city.zip")
-  distance_url <-
-    "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_SMOD_GLOBE_R2023A/GHS_SMOD_E2015_GLOBE_R2023A_54009_1000/V1-0/GHS_SMOD_E2015_GLOBE_R2023A_54009_1000_V1_0.zip"
-  download.file(distance_url, download_loc)
+  
+  if (!file.exists(download_loc)) {
+    distance_url <-
+      "https://jeodpp.jrc.ec.europa.eu/ftp/jrc-opendata/GHSL/GHS_SMOD_GLOBE_R2023A/GHS_SMOD_E2015_GLOBE_R2023A_54009_1000/V1-0/GHS_SMOD_E2015_GLOBE_R2023A_54009_1000_V1_0.zip"
+    download.file(distance_url, download_loc)
+  }
   
   unzipped <- unzip(download_loc, exdir = scratch)
   
@@ -397,7 +398,7 @@ names(clim_rasts) <- sources(clim_rasts) %>%
 
 
 check_extreme_clim = F
-if (check_extreme_clim == T) {
+if (check_extreme_clim) {
   # tile the climate things so i can look at the data
   grid_ncol <- 5
   grid_nrow <- 5
@@ -546,3 +547,210 @@ if (!file.exists(footprint_loc)) {
 }
 
 footprint <- rast(footprint_loc)
+
+# making zone all layers for covariates
+if (list.files(raster_cov, pattern = ".dat$") %>% length() != 16) {
+  topo <-
+    list.files("F:/mosaiced/topo",
+               full.names = T,
+               pattern = ".dat$") %>%
+    map(rast) %>%
+    map(crop, forests, .progress = "crop") %>%
+    rast()
+  
+  names(topo) <- list.files("F:/mosaiced/topo", pattern = ".dat$")
+  
+  r_gen <-
+    list.files(here::here(raster_loc),
+               full.names = T,
+               pattern = ".dat$") %>%
+    map(rast) %>%
+    rast()
+  
+  pa_loc <- here::here(shapefile_loc, "bc_pa_filt.shp")
+  
+  bc_pa_filt <- vect(pa_loc)
+  
+  pa_rast <- rasterize(bc_pa_filt, forests)
+  
+  names(pa_rast) <- "pa"
+  
+  names(r_gen) <-
+    list.files(here::here(raster_loc), pattern = ".dat$")
+  
+  #all <- c(rast(arc_tifs), rast(topo), r_gen)
+  
+  all <- c(topo, r_gen, pa_rast)
+  
+  names(all) <- str_replace(names(all), ".dat", "")
+  
+  all_masked <- mask(all, forests)
+  
+  map2(.x = as.list(all_masked)[1:2], .y = names(all_masked)[1:2], \(x, y) {
+    savename <- here::here(raster_loc, glue::glue("{y}.dat"))
+    print(savename)
+    if (!file.exists(savename))
+      writeRaster(x, savename, overwrite = T, filetype = "envi")
+  })
+  
+  bec_loc <- here::here(shapefile_loc, "bec_terr_agg.shp")
+  
+  bec_vect <- vect(bec_loc)
+  
+  zones <- bec_vect %>% pull(ZONE)
+  
+  
+  for (zone in zones) {
+    print(zone)
+    zone_save <-
+      here::here(raster_cov, paste0(zone, ".dat"))
+    
+    if (!file.exists(zone_save)) {
+      zone_vect <- bec_vect %>%
+        filter(ZONE == zone)
+      
+      zone_rast <- rasterize(zone_vect, forests, field = "ZONE") %>%
+        trim()
+      
+      zone_all <- crop(all_masked, zone_rast, mask = T) %>%
+        trim()
+      
+      #zone_csv <- as.data.frame(zone_all)
+      
+      #write_csv(zone_csv, here::here("data", "csv", paste0(zone, ".csv")))
+      
+      writeRaster(zone_all,
+                  zone_save,
+                  filetype = "envi",
+                  overwrite = T)
+    }
+    
+  }
+}
+
+rm(all, all_masked, bc_pa_filt, pa_rast, r_gen, topo)
+
+
+#### structure and dhi
+
+struct_locs <- here::here("F://", "mosaiced", "structure")
+
+struct_varnames <- list.files(struct_locs)
+
+struct_rasts <- map(struct_varnames, \(x) {
+  sname <- here::here(mosaic_mask_loc, glue::glue("{x}.dat"))
+  print(sname)
+  if (!file.exists(sname)) {
+    r <- rast(here::here(struct_locs, x, glue::glue("{x}_2015.dat")))
+    masked <- r %>%
+      crop(y = forests, mask = T) %>%
+      writeRaster(., sname, filetype = "envi", overwrite = T)
+  }
+  rast(sname)
+}, .progress = "Structure Masking")
+
+dhi_loc <- here::here("F://", "mosaiced", "DHI_nomask")
+
+dhi_files <-
+  list.files(dhi_loc, pattern = ".tif$", full.names = T)
+
+dhi_rasts <- map(dhi_files, \(file) {
+  x <- basename(file) %>%
+    tools::file_path_sans_ext() %>%
+    str_split("-") %>%
+    unlist() %>%
+    str_subset("DHI")
+  
+  sname <- here::here(mosaic_mask_loc, glue::glue("{x}.dat"))
+  print(sname)
+  if (!file.exists(sname)) {
+    r <- rast(here::here(file))
+    masked <- r %>%
+      crop(y = forests, mask = T) %>%
+      writeRaster(., sname, filetype = "envi", overwrite = T)
+  }
+  rast(sname)
+}, .progress = "DHI Masking")
+
+all_rasts <- c(struct_rasts, dhi_rasts)
+
+all_names <- all_rasts %>%
+  map(sources) %>%
+  unlist() %>%
+  basename() %>%
+  tools::file_path_sans_ext()
+
+names(all_rasts) <- all_names
+
+bec_loc <- here::here(shapefile_loc, "bec_terr_agg.shp")
+
+bec_vect <- vect(bec_loc)
+
+zones <- bec_vect %>% pull(ZONE)
+
+for (zone in zones) {
+  print(zone)
+  zone_loc <-
+    here::here(raster_vars, zone)
+  
+  dir.create(zone_loc, showWarnings = F)
+  
+  zone_vect <- bec_vect %>%
+    filter(ZONE == zone)
+  
+  zone_save <-
+    here::here(raster_loc,
+               "zone_masks",
+               glue::glue("{zone}_mask.tif"))
+  
+  dir.create(dirname(zone_save), showWarnings = F)
+  
+  if (!file.exists(zone_save)) {
+    print(glue::glue("Making {zone} mask and saving"))
+    zone_rast <- rasterize(zone_vect, forests, field = "ZONE") %>%
+      trim()
+    
+    writeRaster(zone_rast, zone_save)
+  }
+  zone_rast <- rast(zone_save)
+  
+  save_names <-
+    here::here(zone_loc,
+               glue::glue("{all_names}.dat"))
+  
+  # zone_all <- all_rasts %>%
+  #   map(crop,
+  #       y = zone_rast,
+  #       mask = T,
+  #       .progress = "Zone Cropping/masking") %>%
+  #   map(trim, .progress = "Trim")
+  #
+  # map2(
+  #   .x = zone_all,
+  #   .y = save_names,
+  #   .f = writeRaster,
+  #   filetype = "envi",
+  #   overwrite = T,
+  #   .progress = "Save"
+  # )
+  
+  map2(
+    .x = all_rasts,
+    .y = save_names,
+    .f = \(x, y) {
+      print(y)
+      if (!file.exists(y)) {
+        crop(x, zone_rast, mask = T) %>%
+          trim() %>%
+          writeRaster(
+            x = .,
+            filename = y,
+            filetype = "envi",
+            overwrite = T
+          )
+      }
+    },
+    .progress = "Crop, Trim, Save"
+  )
+  
+}

@@ -1,0 +1,16 @@
+variable,var_long,divide_by,unit
+elev,Elevation,1,m
+slope,Slope,1,degrees
+gross_stem_volume,Gross Stem Volume,10,m^3ha^-1
+basal_area,Basal Area,100,m^2ha
+percentage_first_returns_above_2m,Canopy Cover,100,%
+total_biomass,Aboveground Biomass,100,t/ha
+percentage_first_returns_above_mean,Overstory Cover,100,%
+elev_cv,Structural Complexity,1000,Elevation Covariance
+loreys_height,Lorey's Height,1000,m
+elev_mean,Mean Elevation,1000,m
+elev_stddev,Elevation Standard Deviation,1000,m
+elev_p95,Canopy Height,1000,m
+CumDHI,Cumulative DHI,,
+MinDHI,Minimum DHI,,
+VarDHI,Variation DHI,,
